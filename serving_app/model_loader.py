@@ -30,16 +30,21 @@
    scale_sales(판매수량)          → 0~1          판매수량 하나를 0~1로 (학습 정답용)
    inverse_sales(0~1 값)         → 판매수량(개)  0~1 값을 개수로 되돌리기
 """
+import logging
 import os
+import threading
 import time
 
 from data.features import SalesScaler
 
 LOCAL_MODEL_PATH = "serving_app/models/fresh_sales_v1.keras"
 SCALER_PATH = "serving_app/models/scaler.pkl"
-MLFLOW_MODEL_URI = "models:/FreshSales_Predictor/Production"  # "models:/<모델 이름>/<단계>" 형식
+MLFLOW_MODEL_NAME = "FreshSales_Predictor"  # train_and_register.py 의 MODEL_NAME 과 같은 이름
 
 _model_cache = None  # 한 번 불러온 모델을 담아 두는 상자 (처음엔 비어 있음 = None)
+_load_lock = threading.Lock()  # 동시에 들어온 첫 요청들이 모델을 여러 번 불러오지 않도록 막는 자물쇠
+
+logger = logging.getLogger("aiops")
 
 
 class LoadedModel:
@@ -107,13 +112,25 @@ def _load_from_mlflow() -> LoadedModel:
     확인 방법
       1) python serving_app/train_and_register.py   → "[GATE PASSED] ... promoted to Production"
       2) MODEL_SOURCE=mlflow uvicorn serving_app.main:app --host 0.0.0.0 --port 8077
-      3) /predict 응답의 model_version 이 "production" 이고 predicted_sales_qty 가 개수 값이면 성공
+      3) /predict 응답의 model_version 이 "production-v<번호>" 이고 predicted_sales_qty 가 개수 값이면 성공
     """
-    import mlflow.tensorflow
+    import mlflow.tensorflow as mlflow_tf  # `mlflow.tensorflow.load_model` 로 쓰면 Pylance 가 "not exported" 오류를 냄
+    from mlflow.tracking import MlflowClient
 
-    # 모델 : MLflow 레지스트리에서 "Production" 단계 모델을 불러옵니다. (완성)
-    #   버전 번호 대신 단계(Production)로 불러오므로, 재배포 때 서버 코드를 고칠 필요가 없습니다.
-    keras_model = mlflow.tensorflow.load_model(MLFLOW_MODEL_URI)
+    # 모델 : MLflow 레지스트리에서 "Production" 단계 모델을 불러옵니다.
+    #   서버 코드에 버전 번호를 적지 않고 "지금 Production 인 버전"을 매번 조회하므로, 재배포 때 코드를 고칠 필요가 없습니다.
+    #   번호를 먼저 확정한 뒤 그 번호로 불러오는 이유: 응답의 model_version 에 실제 번호를 싣기 위해서이고,
+    #   조회와 로딩 사이에 재학습 승격이 끼어들어도 "응답에 적힌 번호"와 "실제로 불러온 모델"이 어긋나지 않습니다.
+    #   (models:/<이름>/Production 과 같은 규칙으로, Production 이 여러 개면 가장 높은 번호를 고릅니다)
+    prod_versions = [
+        int(mv.version)
+        for mv in MlflowClient().search_model_versions(f"name='{MLFLOW_MODEL_NAME}'")
+        if mv.current_stage == "Production"
+    ]
+    if not prod_versions:
+        raise RuntimeError(f"MLflow 에 Production 단계의 {MLFLOW_MODEL_NAME} 모델이 없습니다. train_and_register.py 를 먼저 실행하세요.")
+    version = max(prod_versions)
+    keras_model = mlflow_tf.load_model(f"models:/{MLFLOW_MODEL_NAME}/{version}")
 
     # ════════════════════════════ [빈칸 5] ════════════════════════════
     # 스케일러를 알맞은 곳에서 불러오세요. (바로 위 _load_from_local 과 비교해 보세요)
@@ -125,7 +142,7 @@ def _load_from_mlflow() -> LoadedModel:
     
     #scaler = keras_model.scaler()                                                                   ##############이게 맞나??? mlflow에 올라간 모델의 스케일러 확인이 안되는데??
     scaler = SalesScaler.load(SCALER_PATH)                                                            ########### 교수님께서 모델이 mlflow에 올라갔다고 가정하신걸까??
-    return LoadedModel(keras_model=keras_model, scaler=scaler, version="production")
+    return LoadedModel(keras_model=keras_model, scaler=scaler, version=f"production-v{version}")
 
 
 def _load_model() -> LoadedModel:
@@ -168,8 +185,35 @@ def get_model() -> LoadedModel:
     #     · 상자가 비어 있다는 것은 코드로 어떻게 확인할까요? (파일 위쪽 _model_cache 의 처음 값)
     #     · 이 조건문 없이 매번 불러오면, 동작은 할까요? 요청이 초당 100건이면 어떻게 될까요?
     #     · 불러오는 함수는 load_eager() 가 무엇을 호출하는지 보면 알 수 있습니다.
-    if _load_model:                                                                             ##### 처음에 ___였다이.. 이게 맞냐이??? load_from_loca과 load_from_mlflow의 리턴값을 확인 해야하나?
-        start = time.time()
-        _model_cache = load_eager()                                                             ##### ___를 처음에 _load_model로 했다가 load_eager로 함. 이게 맞는 듯.
-        print(f"[lazy] model loaded in {time.time() - start:.3f}s on first request")
+    # (수정) 예전 조건 `if _load_model:` 은 함수 자체라 항상 True → 매 요청마다 모델을 다시 불러왔음.
+    #        상자가 비어 있을 때(None)만 불러오도록 고침. 자물쇠 안에서 한 번 더 확인해, 동시에 들어온
+    #        첫 요청들이 각자 모델을 불러오는 것도 막음.
+    if _model_cache is None:
+        with _load_lock:
+            if _model_cache is None:
+                start = time.time()
+                _model_cache = _load_model()
+                print(f"[lazy] model loaded in {time.time() - start:.3f}s on first request")
     return _model_cache
+
+
+def reload_model() -> LoadedModel | None:
+    """
+    재학습으로 새 버전이 Production 으로 승격된 뒤 호출합니다 (routers/predict.py 의 batch_test).
+    get_model() 은 상자에 든 모델을 계속 재사용하므로, 이걸 부르지 않으면 승격 후에도 옛 모델이 응답합니다.
+
+    새 모델을 다 불러온 "다음에" 상자 내용을 바꿔 끼우므로, 불러오는 동안 들어온 /predict 는 기존 모델로 정상 응답합니다.
+    불러오기에 실패하면 기존 모델을 그대로 유지합니다 (기획서 장애 대응: 실패 시 기존 Production 유지).
+    """
+    global _model_cache
+    start = time.time()
+    try:
+        model = _load_model()
+    except Exception as e:
+        logger.error(f"[ERROR] model reload failed - keep serving {getattr(_model_cache, 'version', None)}: {e}")
+        return _model_cache
+    with _load_lock:
+        previous = getattr(_model_cache, "version", None)
+        _model_cache = model
+    print(f"[reload] {previous} -> {model.version} loaded in {time.time() - start:.3f}s")
+    return model

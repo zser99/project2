@@ -95,4 +95,10 @@ def batch_test(req: BatchTestRequest):
 
     # 드리프트 판단·재학습은 retrain_trigger.py 가 합니다. 여기서는 넘겨주기만!
     drift_check = check_and_trigger(recent_predictions)
+
+    # 새 버전이 Production 으로 승격됐으면 서빙 중인 모델도 교체합니다.
+    # (get_model 은 한 번 불러온 모델을 계속 재사용하므로, 이걸 안 하면 다음 /predict 도 옛 모델이 응답합니다)
+    if drift_check.get("promoted"):
+        model_loader.reload_model()
+
     return BatchTestResponse(predictions=predictions, drift_check=drift_check)
