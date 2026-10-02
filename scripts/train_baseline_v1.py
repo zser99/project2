@@ -50,7 +50,7 @@ def main():
     y_train_scaled = np.array([scaler.scale_sales(v) for v in y_train], dtype="float32")
 
     model = build_model()
-    model.fit(X_train, y_train_scaled, epochs=BASE_EPOCHS, verbose=0) #######################?????
+    model.fit(X_train, y_train_scaled, epochs=BASE_EPOCHS, verbose=0) 
 
     preds_scaled = model.predict(X_test, verbose=0).flatten()
     preds = [scaler.inverse_sales(p) for p in preds_scaled]  # 실제 개수 단위로 복원

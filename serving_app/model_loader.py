@@ -76,7 +76,7 @@ class LoadedModel:
         #   생각해 볼 질문
         #     · 이 모델은 학습할 때 어떤 도구로 입력을 0~1로 바꿨을까요? (data/features.py 의 build_sequences 참고)
         #     · 서버에서 다른 방법으로 바꾸거나, 아예 안 바꾸고 넣으면 어떻게 될까요?
-        scaled = [self.scaler.transform_point(p["sales_qty"], p["event_flag"]) for p in sequence] ######################### 30분 걸려서 자력으로 채운 첫 TODO!!!!!
+        scaled = [self.scaler.transform_point(p["sales_qty"], p["event_flag"]) for p in sequence] 
 
         # ② 입력 모양 맞추기 — 모델은 "문제 여러 개"를 받으므로 1개라도 [ ]로 감쌉니다. (1, 20, 2)
         x = np.array([scaled], dtype="float32")  # (1, SEQ_LEN, 2)
@@ -90,7 +90,7 @@ class LoadedModel:
         #   생각해 볼 질문
         #     · pred_scaled 는 0.47 같은 값입니다. 이대로 응답하면 사용자는 무엇을 보게 될까요?
         #     · train_baseline_v1.py 의 STEP 7(시험 보기)에서는 예측값을 어떻게 처리했나요?
-        return self.scaler.inverse_sales(pred_scaled)                                         ######################금방 채운다이이
+        return self.scaler.inverse_sales(pred_scaled)                                         
 
 
 # ═══════════════════════════════ 어디서 불러올까? ═══════════════════════════════
