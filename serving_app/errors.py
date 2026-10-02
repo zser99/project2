@@ -66,10 +66,13 @@ def _korean_message(err: dict) -> str:
 
 async def _validation_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)  # RequestValidationError 에만 등록하므로 항상 참
-    detail = [
-        {"loc": err.get("loc"), "msg": _korean_message(err), "type": err.get("type"), "input": err.get("input")}
-        for err in exc.errors()
-    ]
+    detail = []
+    for err in exc.errors():
+        item = {"loc": err.get("loc"), "msg": _korean_message(err), "type": err.get("type")}
+        # 값이 빠진(missing) 오류의 input 은 빠진 값이 아니라 요청 본문 전체라서 싣지 않는다
+        if err.get("type") != "missing":
+            item["input"] = err.get("input")
+        detail.append(item)
     return JSONResponse(status_code=422, content=jsonable_encoder({"detail": detail}))
 
 
