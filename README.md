@@ -193,11 +193,13 @@ docker compose -f serving_app/docker-compose.yml up --build
 #  이미지 빌드 시점에 전부 끝나므로, 로컬에서 미리 실행해둘 필요가 없습니다)
 
 # --- Day3 ---
-uvicorn serving_app.main:app --host 0.0.0.0 --port 8077 
+MODEL_SOURCE=mlflow uvicorn serving_app.main:app --host 0.0.0.0 --port 8077
+# (MODEL_SOURCE=mlflow 로 띄워야 재학습으로 승격된 새 버전이 /predict 에 바로 반영됩니다 - local 이면 계속 v1-local)
 python scripts/simulate_drift.py          # 정상 배치 → 드리프트 배치 순서로 주입
 ```
 
-`/predict`는 단일 값이 아니라 **최근 20일치 시퀀스**를 받습니다. 요청 예시:
+`/predict`는 단일 값이 아니라 **최근 20일치 시퀀스**와 **현재 재고**를 받아, 다음날 예측 판매량과
+권장 발주량을 돌려줍니다 (기획서 5-2절). `/docs`의 "Try it out"에는 샘플 데이터 마지막 20일이 예시로 채워져 있습니다.
 
 ```json
 {
@@ -205,9 +207,28 @@ python scripts/simulate_drift.py          # 정상 배치 → 드리프트 배�
     {"sales_qty": 62.0, "event_flag": 0},
     {"sales_qty": 64.0, "event_flag": 0},
     { "...": "18개 더" }
-  ]
+  ],
+  "current_stock": 9,
+  "prediction_date": "2026-01-02"
 }
 ```
+
+```json
+{
+  "prediction_date": "2026-01-02",
+  "predicted_sales": 48,
+  "safety_stock": 5,
+  "current_stock": 9,
+  "recommended_order": 44,
+  "model_version": "production-v3",
+  "status": "success"
+}
+```
+
+- 권장 발주량 = 예측 판매량 + 안전재고(예측의 10%, 올림) - 현재 재고 (0 미만이면 0). `prediction_date`를 생략하면 내일 날짜.
+- 입력이 잘못되면 422 (메시지는 한국어, `serving_app/errors.py`), 모델을 불러오지 못하면 503.
+- `/predict/batch-test` 응답에는 기존 `predictions`·`drift_check`에 더해 `rmse`·`threshold`·`status`·`message`·`model_version`이 들어갑니다.
+- 모든 응답에 처리 시간 헤더 `X-Process-Time`이 붙고, `/predict`가 1초를 넘으면 `logs/aiops.log`에 `[WARN] slow response`가 남습니다.
 
 ## TODO 체크리스트 (실습생이 채워야 하는 부분)
 
