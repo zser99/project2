@@ -59,7 +59,7 @@ def compute_rmse(recent_predictions: list[dict]) -> float:
     #     · 이미 적힌 ** 2 를 빼고 오차를 그냥 평균 내면, 위 예시의 결과는 몇이 되나요? 그게 맞는 판단일까요?
     #     · 이미 적힌 math.sqrt 를 빼면 단위가 "개"일까요, "개²"일까요? 기준 13.00개 와 비교할 수 있을까요?
   
-    errors_sq = [(p.get("predicted")-p.get("actual")) ** 2 for p in recent_predictions]                            ###########___뿐만 아니라, p가 p,a가 되어야하는거 아닌가
+    errors_sq = [(p["predicted"] - p["actual"]) ** 2 for p in recent_predictions]                            ###########___뿐만 아니라, p가 p,a가 되어야하는거 아닌가
     #print(errors_sq[0])
     return (math.sqrt(sum(errors_sq)/len(recent_predictions)))                                  ########### 방금 오지연님이 힌트 줘서 평균으로 안나눈거 알아차림. 닉값 해야지 RMSE
 

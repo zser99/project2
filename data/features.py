@@ -17,6 +17,7 @@ import csv
 import pickle
 
 SEQ_LEN = 20  # LSTM 입력 윈도우 길이 (일수) - 주간 주기(7일)를 약 3회 포함
+_NOT_FITTED_MSG = "SalesScaler가 아직 fit/load되지 않았습니다 (scripts/train_baseline_v1.py로 scaler.pkl을 먼저 만드세요)."
 
 
 def load_rows(csv_path: str = "data/sample_fresh_sales.csv") -> list[dict]:
@@ -57,12 +58,16 @@ class SalesScaler:
         self.event_min, self.event_max = min(events), max(events)
         return self
 
-    def _scale(self, value: float, lo: float, hi: float) -> float:
+    def _scale(self, value: float, lo: float | None, hi: float | None) -> float:
+        if lo is None or hi is None:
+            raise RuntimeError(_NOT_FITTED_MSG)
         if hi == lo:
             return 0.0
         return (value - lo) / (hi - lo)
 
-    def _unscale(self, value: float, lo: float, hi: float) -> float:
+    def _unscale(self, value: float, lo: float | None, hi: float | None) -> float:
+        if lo is None or hi is None:
+            raise RuntimeError(_NOT_FITTED_MSG)
         return value * (hi - lo) + lo
 
     def transform_point(self, sales_qty: float, event_flag: float) -> list[float]:

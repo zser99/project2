@@ -19,7 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import mlflow
-import mlflow.tensorflow
+import mlflow.tensorflow as mlflow_tf  # `mlflow.tensorflow.xxx` 로 쓰면 Pylance 가 "not exported" 오류를 냄
 import numpy as np
 from mlflow.tracking import MlflowClient
 from tensorflow import keras
@@ -83,7 +83,7 @@ def train_and_register(csv_path: str | None = None, rows: list[dict] | None = No
     scaler = SalesScaler.load(SCALER_PATH)
     X_train, y_train_scaled, X_test, y_test = _prepare(rows, scaler)
 
-    with mlflow.start_run(run_name="base-train"):
+    with mlflow.start_run(run_name="base-train") as run:
         model = build_model()
         model.fit(X_train, y_train_scaled, epochs=BASE_EPOCHS, verbose=0)
 
@@ -93,9 +93,9 @@ def train_and_register(csv_path: str | None = None, rows: list[dict] | None = No
         mlflow.log_param("mode", "scratch")
         mlflow.log_param("epochs", BASE_EPOCHS)
         mlflow.log_metric("rmse", score)
-        mlflow.tensorflow.log_model(model, name="model", input_example=X_train[:1])
+        mlflow_tf.log_model(model, name="model", input_example=X_train[:1])
 
-        return _register_if_gate_passed(model, mlflow.active_run().info.run_id, score)
+        return _register_if_gate_passed(model, run.info.run_id, score)
 
 
 def fine_tune(rows: list[dict]) -> dict:
@@ -106,10 +106,10 @@ def fine_tune(rows: list[dict]) -> dict:
     scaler = SalesScaler.load(SCALER_PATH)
     X_train, y_train_scaled, X_test, y_test = _prepare(rows, scaler)
 
-    model = mlflow.tensorflow.load_model(f"models:/{MODEL_NAME}/Production")
+    model = mlflow_tf.load_model(f"models:/{MODEL_NAME}/Production")
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=FINE_TUNE_LR), loss="mse")
 
-    with mlflow.start_run(run_name="fine-tune"):
+    with mlflow.start_run(run_name="fine-tune") as run:
         model.fit(X_train, y_train_scaled, epochs=FINE_TUNE_EPOCHS, verbose=0)
 
         preds = [scaler.inverse_sales(p) for p in model.predict(X_test, verbose=0).flatten()]
@@ -119,9 +119,9 @@ def fine_tune(rows: list[dict]) -> dict:
         mlflow.log_param("epochs", FINE_TUNE_EPOCHS)
         mlflow.log_param("n_rows", len(rows))
         mlflow.log_metric("rmse", score)
-        mlflow.tensorflow.log_model(model, name="model", input_example=X_train[:1])
+        mlflow_tf.log_model(model, name="model", input_example=X_train[:1])
 
-        return _register_if_gate_passed(model, mlflow.active_run().info.run_id, score)
+        return _register_if_gate_passed(model, run.info.run_id, score)
 
 
 if __name__ == "__main__":
