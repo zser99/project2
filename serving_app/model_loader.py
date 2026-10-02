@@ -168,8 +168,8 @@ def get_model() -> LoadedModel:
     #     · 상자가 비어 있다는 것은 코드로 어떻게 확인할까요? (파일 위쪽 _model_cache 의 처음 값)
     #     · 이 조건문 없이 매번 불러오면, 동작은 할까요? 요청이 초당 100건이면 어떻게 될까요?
     #     · 불러오는 함수는 load_eager() 가 무엇을 호출하는지 보면 알 수 있습니다.
-    if _load_model:                                                                             ##### 처음에 ___였다이.. 이게 맞냐이??? load_from_loca과 load_from_mlflow의 리턴값을 확인 해야하나?
+    if _model_cache is None:                                                                             ##### 처음에 ___였다이.. 이게 맞냐이??? load_from_loca과 load_from_mlflow의 리턴값을 확인 해야하나?
         start = time.time()
-        _model_cache = load_eager()                                                             ##### ___를 처음에 _load_model로 했다가 load_eager로 함. 이게 맞는 듯.
+        _model_cache =  _load_model()                                                             ##### ___를 처음에 _load_model로 했다가 load_eager로 함. 이게 맞는 듯.
         print(f"[lazy] model loaded in {time.time() - start:.3f}s on first request")
     return _model_cache
