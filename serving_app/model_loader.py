@@ -140,8 +140,8 @@ def _load_from_mlflow() -> LoadedModel:
     #     · Day2 모델은 어떤 스케일러로 0~1 변환한 데이터로 학습했나요? (train_and_register.py 의 SCALER_PATH 참고)
     #     · 스케일러를 여기서 새로 fit 하면 어떤 일이 생길까요?
     
-    #scaler = keras_model.scaler()                                                                   ##############이게 맞나??? mlflow에 올라간 모델의 스케일러 확인이 안되는데??
-    scaler = SalesScaler.load(SCALER_PATH)                                                            ########### 교수님께서 모델이 mlflow에 올라갔다고 가정하신걸까??
+    #scaler = keras_model.scaler()                                                                   
+    scaler = SalesScaler.load(SCALER_PATH)                                                           
     return LoadedModel(keras_model=keras_model, scaler=scaler, version=f"production-v{version}")
 
 
