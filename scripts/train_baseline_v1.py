@@ -26,7 +26,7 @@ from serving_app.lstm_model import build_model
 MODEL_PATH = "serving_app/models/fresh_sales_v1.keras"
 SCALER_PATH = "serving_app/models/scaler.pkl"
 BASE_EPOCHS = 100  # 3층 LSTM + 2년치 데이터 기준, RMSE가 안정적으로 수렴하는 지점
-RMSE_GATE = 13.00  # 배포 게이트 (단위: 개) - train_and_register.py의 RMSE_GATE와 같은 값
+RMSE_GATE = 10.00  # 배포 게이트 (단위: 개) - train_and_register.py의 RMSE_GATE와 같은 값
 
 
 def rmse(y_true, y_pred) -> float:

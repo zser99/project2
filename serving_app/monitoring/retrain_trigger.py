@@ -8,8 +8,8 @@
    시험을 통과하면 새 모델을 Production 으로 올립니다. 이 과정을 전부 로그로 남깁니다.
 
 ■ 전체 흐름
-   드리프트 감지(RMSE > 13개) → 경고 로그 → 최근 데이터 가져오기 → fine-tuning
-     → 시험 통과(RMSE ≤ 13개)? ─ 예   → 새 버전을 Production 으로 승격 + 성공 로그
+   드리프트 감지(RMSE > 10개) → 경고 로그 → 최근 데이터 가져오기 → fine-tuning
+     → 시험 통과(RMSE ≤ 10개)? ─ 예   → 새 버전을 Production 으로 승격 + 성공 로그
                              └ 아니오 → 기존 Production 그대로 유지 (서비스는 멈추지 않음)
 
 ■ 확인 방법
@@ -80,7 +80,7 @@ def check_and_trigger(recent_predictions: list[dict]) -> dict:
     #
     #   생각해 볼 질문
     #     · 재학습이 "실행됐다"와 "새 모델이 배포됐다"는 같은 뜻일까요?
-    #     · 시험(RMSE ≤ 13개)에 떨어진 새 모델은 어떻게 되고, 서비스는 어떤 모델이 계속 맡나요?
+    #     · 시험(RMSE ≤ 10개)에 떨어진 새 모델은 어떻게 되고, 서비스는 어떤 모델이 계속 맡나요?
     #       (train_and_register.py 의 _register_if_gate_passed 참고)
     if result.get("promoted"):         ####result["key"]                                                              ###########호롤로로로ㅗ로로로ㅗ로롤ㄹㄹ로ㅗㅗㅗㅗㅗ
         logger.info(

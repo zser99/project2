@@ -4,7 +4,7 @@ Day3: 드리프트 감지 후 Production 가중치에서 이어서 학습하는 
 
 실습 시나리오 (94번 슬라이드를 LSTM 버전으로 재구성):
     1) 판매 데이터로 base 모델 학습(100 epoch) -> RMSE 확인 (게이트 미달 가능)
-    2) 게이트(13.00개) 통과 시 Production으로 승격
+    2) 게이트(10.00개) 통과 시 Production으로 승격
     3) (Day3) 드리프트 감지 시 Production 가중치에서 warm-start -> 최근 1개월 데이터로
        10 epoch만 fine-tuning (처음부터 다시 학습하지 않음 - 21일로는 스크래치 학습이 불안정)
 
@@ -34,11 +34,17 @@ from serving_app.lstm_model import build_model
 SEED = 42
 keras.utils.set_random_seed(SEED)
 
-# 배포 게이트 (단위: 개). 판매수량은 주가와 달리 자기상관이 거의 없고(전날값 그대로
-# 예측 시 RMSE 16.5 = 전체평균 예측과 동일) 이벤트 시작일을 원리적으로 못 맞히므로,
-# 달성 가능한 하한이 10~11 수준입니다. "요일 평균"이라는 단순 베이스라인(13.86)보다
-# 나은 모델만 통과시키는 선으로 13.00을 잡았습니다.
-RMSE_GATE = 13.00
+# 배포 게이트 (단위: 개). 판매수량은 주가와 달리 자기상관이 거의 없어(전날값 그대로
+# 예측 시 RMSE 15.1 = 전체평균 예측 15.6과 큰 차이 없음) 단순 베이스라인의 RMSE가
+# 높습니다. "요일 평균"이라는 베이스라인이 13.59이고, 같은 입력(20일 x 2채널)을 준
+# 상한 모델이 선형회귀 7.74 / GBM 7.07이므로, 그 사이에서 "요일 평균보다 확실히
+# 낫고 상한에도 근접한 모델만 통과"시키는 선으로 10.00을 잡았습니다.
+# base 학습 실측은 약 9로 통과합니다.
+#
+# monitoring/drift_detector.py의 RMSE_THRESHOLD와 **반드시 같은 값**이어야 합니다 -
+# 다르면 "드리프트로 재학습을 걸었는데 게이트는 통과 못 해 영원히 승격 안 되는"
+# 구간이 생깁니다.
+RMSE_GATE = 10.00
 MODEL_NAME = "FreshSales_Predictor"
 SCALER_PATH = "serving_app/models/scaler.pkl"
 BASE_EPOCHS = 100  # 3층 LSTM + 2년치 데이터 기준, RMSE가 안정적으로 수렴하는 지점

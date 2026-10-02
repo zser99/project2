@@ -1,1 +1,39 @@
-/.venv
+# ─────────────────────────────────────────────────────────────────────
+# 이 파일의 원칙: "각자 로컬에서 생성되는 것"은 커밋하지 않습니다.
+# clone 직후 README의 "실행 순서"를 그대로 따라가면 아래 항목들이 전부
+# 각자 환경에 맞게 새로 만들어집니다.
+# ─────────────────────────────────────────────────────────────────────
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# MLflow 로컬 저장소
+# ※ 절대 커밋하지 마세요. mlflow.db에는 아티팩트 경로가 "절대경로"로 저장되므로
+#   (예: /Users/<내계정>/AIOps/project2/mlruns/0) 다른 사람이 받아서 실행하면
+#   남의 홈 디렉터리에 쓰려다 PermissionError가 납니다.
+mlflow.db
+mlflow.db-journal
+mlruns/
+mlartifacts/
+
+# Day1 학습 산출물 - scripts/train_baseline_v1.py 가 생성
+serving_app/models/*.keras
+serving_app/models/*.pkl
+
+# 업로드된 판매 데이터 - 대시보드 업로드 카드에서 각자 올립니다
+# (예시 파일 data/sample_fresh_sales.csv 는 커밋 대상이라 그대로 남습니다)
+data/uploads/*
+!data/uploads/.gitkeep
+
+# 실행 로그 - serving_app/main.py 가 생성
+logs/*
+!logs/.gitkeep
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
