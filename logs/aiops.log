@@ -1,6 +1,0 @@
-2026-10-02 09:29:54,014 [WARNING] [WARN] drift detected - triggering retrain
-2026-10-02 09:29:54,015 [INFO] [INFO] retrain triggered (window=last_21_days)
-2026-10-02 09:29:59,162 [INFO] [OK] new_rmse=8.95 - production promoted: FreshSales_Predictor v2
-2026-10-02 09:35:06,243 [WARNING] [WARN] drift detected - triggering retrain
-2026-10-02 09:35:06,246 [INFO] [INFO] retrain triggered (window=last_21_days)
-2026-10-02 09:35:11,938 [INFO] [OK] new_rmse=11.11 - production promoted: FreshSales_Predictor v3
